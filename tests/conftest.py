@@ -4,7 +4,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.db.base import Base
+from src.db..db.base import Base
 from src.db.session import get_db
 from src.main import app
 from src.core.security import get_password_hash

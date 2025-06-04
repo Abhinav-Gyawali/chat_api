@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from .base import Base
+from ..db.base import Base
 import enum
 
 class MessageType(enum.Enum):
@@ -27,7 +27,7 @@ class Message(Base):
     read_at = Column(DateTime, nullable=True)
     
     chat_id = Column(Integer, ForeignKey("chats.id"))
-    sender_id = Column(Integer, ForeignKey("users.id"))
+    sender_user = Column(String, ForeignKey("users.username"))
     
     chat = relationship("Chat", back_populates="messages")
     sender = relationship("User")

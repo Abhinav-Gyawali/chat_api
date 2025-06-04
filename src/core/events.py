@@ -1,4 +1,3 @@
-/chat_api/src/core/events.py
 from typing import Dict, Set, List
 from fastapi import WebSocket
 import json
@@ -39,10 +38,10 @@ class CallManager:
     def __init__(self):
         self.active_calls: Dict[int, Dict] = {}  # call_id: call_info
         
-    async def start_call(self, call_id: int, caller_id: int, receiver_id: int, call_type: str):
+    async def start_call(self, call_id: int, caller_user: int, receiver_user: int, call_type: str):
         self.active_calls[call_id] = {
-            "caller_id": caller_id,
-            "receiver_id": receiver_id,
+            "caller_user": caller_user,
+            "receiver_user": receiver_user,
             "type": call_type,
             "start_time": datetime.utcnow(),
             "status": "ringing"

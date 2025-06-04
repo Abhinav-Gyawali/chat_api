@@ -1,8 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from core.config import settings
-from api.endpoints import auth, ws
-from models.base import Base, engine
+from .core.config import settings
+from .api.endpoints import auth, ws, users  # Add users import
+from .db.base import Base, engine
+from .models.associations import chat_users
+from .models.user import User
+from .models.chat import Chat
+from .models.message import Message
+from .models.call import Call
+from fastapi.staticfiles import StaticFiles
+
 
 # Create database tables
 app = FastAPI(
@@ -22,10 +29,17 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(ws.router, prefix=settings.API_V1_STR)
+app.include_router(users.router, prefix=settings.API_V1_STR)  # Add this line
+
+# Mount the media directory
+app.mount("/media", StaticFiles(directory="media"), name="media")
+# Mount the uploads directory
+app.mount("/static", StaticFiles(directory="uploads"), name="static")
 
 @app.get("/")
 async def root():
     return {"message": "Welcome to FastAPI Chat API"}
+
 
 if __name__ == "__main__":
     import uvicorn

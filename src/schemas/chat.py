@@ -22,7 +22,7 @@ class ChatInDB(ChatBase):
     updated_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Chat(ChatInDB):
     members: List[int]

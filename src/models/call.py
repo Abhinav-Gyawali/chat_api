@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from .base import Base
+from ..db.base import Base
 import enum
 
 class CallType(enum.Enum):
@@ -25,10 +25,10 @@ class Call(Base):
     ended_at = Column(DateTime, nullable=True)
     duration = Column(Integer, nullable=True)  # Duration in seconds
     
-    caller_id = Column(Integer, ForeignKey("users.id"))
-    receiver_id = Column(Integer, ForeignKey("users.id"))
+    caller_user = Column(String, ForeignKey("users.username"))
+    receiver_user = Column(String, ForeignKey("users.username"))
     chat_id = Column(Integer, ForeignKey("chats.id"))
     
-    caller = relationship("User", foreign_keys=[caller_id])
-    receiver = relationship("User", foreign_keys=[receiver_id])
+    caller = relationship("User", foreign_keys=[caller_user])
+    receiver = relationship("User", foreign_keys=[receiver_user])
     chat = relationship("Chat")

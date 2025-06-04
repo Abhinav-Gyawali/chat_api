@@ -6,17 +6,17 @@ from fastapi import HTTPException, Security, Depends
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 
-from core.config import settings
+from .config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 class TokenData(BaseModel):
-    username: Optional[str] = None
+    username: str
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)

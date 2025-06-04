@@ -23,7 +23,7 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
 
 class UserInDB(UserBase):
-    id: int
+    username: str
     is_active: bool
     is_online: bool
     last_seen: datetime
@@ -31,7 +31,7 @@ class UserInDB(UserBase):
     avatar: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class User(UserInDB):
     pass
@@ -39,3 +39,11 @@ class User(UserInDB):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+class UserResponse(BaseModel):
+    username: str
+    email: str
+    avatar: str | None = None
+
+    class Config:
+        from_attributes = True

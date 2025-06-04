@@ -3,17 +3,18 @@ from typing import Dict, Any
 from sqlalchemy.orm import Session
 from datetime import datetime
 
-from core.events import ConnectionManager
-from core.security import get_current_user
-from models.message import Message
-from models.chat import Chat
-from services.chat import ChatService
-from api.dependencies import get_db
+from ...core.events import ConnectionManager
+from ...core.security import get_current_user
+from ...models.message import Message
+from ...models.chat import Chat
+from ...services.chat import ChatService
+from ..dependencies import get_db
 
 class ChatWebSocket:
     def __init__(self):
         self.connection_manager = ConnectionManager()
-        self.chat_service = ChatService()
+        # Remove the chat_service initialization from __init__
+        # We'll create it in handle_connection where we have access to db
 
     async def handle_chat_message(
         self,
@@ -26,8 +27,11 @@ class ChatWebSocket:
     ):
         """Handle incoming chat messages"""
         try:
+            # Create chat service with db session
+            chat_service = ChatService(db)
+            
             # Create message in database
-            message = await self.chat_service.send_message(
+            message = await chat_service.send_message(
                 db=db,
                 chat_id=chat_id,
                 message={
@@ -71,10 +75,13 @@ class ChatWebSocket:
         db: Session
     ):
         """Handle different types of chat events"""
+        # Create chat service with db session
+        chat_service = ChatService(db)
+        
         if event_type == "join_chat":
             chat_id = data.get("chat_id")
             # Verify user has access to this chat
-            chat = await self.chat_service.get_chat(db, chat_id)
+            chat = await chat_service.get_chat(db, chat_id)
             if not chat or user_id not in [p.id for p in chat.participants]:
                 await websocket.send_json({
                     "type": "error",
@@ -116,7 +123,7 @@ class ChatWebSocket:
                 }
             )
 
-    async def handle_connection(self, websocket: WebSocket, token: str, user_id: int):
+    async def handle_connection(self, websocket: WebSocket, token: str, user_id: int, db: Session = Depends(get_db)):
         """Handle WebSocket connection lifecycle"""
         try:
             # Verify token and user
@@ -133,7 +140,6 @@ class ChatWebSocket:
                     event_type = data.get("type")
                     
                     if event_type == "message":
-                        db = next(get_db())
                         await self.handle_chat_message(
                             websocket,
                             user_id,
@@ -143,7 +149,6 @@ class ChatWebSocket:
                             db
                         )
                     else:
-                        db = next(get_db())
                         await self.handle_chat_event(
                             websocket,
                             user_id,

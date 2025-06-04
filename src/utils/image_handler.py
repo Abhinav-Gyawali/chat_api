@@ -1,66 +1,76 @@
 import os
+from pathlib import Path
+from fastapi import UploadFile
+import aiofiles
 from PIL import Image
-from fastapi import UploadFile, HTTPException
-from core.config import settings
-import uuid
+from ..core.config import settings
 
 class ImageHandler:
-    @staticmethod
-    async def save_profile_image(file: UploadFile, user_id: int) -> str:
-        """Save and process profile image"""
-        if not file.content_type in settings.ALLOWED_IMAGE_TYPES:
-            raise HTTPException(400, "Invalid image type")
-            
-        if file.size > settings.MAX_PROFILE_IMAGE_SIZE:
-            raise HTTPException(400, "Image too large")
-            
-        # Create directory if not exists
-        profile_dir = os.path.join(settings.MEDIA_ROOT, settings.PROFILE_IMAGES_DIR)
-        os.makedirs(profile_dir, exist_ok=True)
+    UPLOAD_DIR = "uploads/profile_images"
+    
+    @classmethod
+    async def save_profile_image(cls, file: UploadFile, username: str) -> str:
+        """
+        Save uploaded profile image to filesystem.
         
-        # Generate unique filename
-        ext = os.path.splitext(file.filename)[1]
-        filename = f"{user_id}_{uuid.uuid4().hex}{ext}"
-        filepath = os.path.join(profile_dir, filename)
+        Args:
+            file (UploadFile): The uploaded image file
+            username (str): Username to use in filename
+            
+        Returns:
+            str: Filename of saved image
+        """
+        # Create upload directory if it doesn't exist
+        os.makedirs(cls.UPLOAD_DIR, exist_ok=True)
         
-        # Save and process image
-        try:
-            image = Image.open(file.file)
+        # Generate filename using username
+        file_extension = file.filename.split('.')[-1]
+        filename = f"profile_{username}.{file_extension}"
+        filepath = os.path.join(cls.UPLOAD_DIR, filename)
+        
+        # Save uploaded file
+        async with aiofiles.open(filepath, 'wb') as f:
+            content = await file.read()
+            await f.write(content)
             
-            # Convert to RGB if needed
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
+        # Optimize image
+        cls._optimize_image(filepath)
+        
+        return filename
+
+    @classmethod
+    def get_profile_image_url(cls, filename: str) -> str:
+        """
+        Generate URL for accessing the profile image.
+        
+        Args:
+            filename (str): Name of the image file
             
-            # Resize if larger than max dimensions
-            if image.width > settings.PROFILE_IMAGE_MAX_WIDTH or \
-               image.height > settings.PROFILE_IMAGE_MAX_HEIGHT:
-                image.thumbnail((
-                    settings.PROFILE_IMAGE_MAX_WIDTH,
-                    settings.PROFILE_IMAGE_MAX_HEIGHT
-                ))
-            
-            # Save original
-            image.save(filepath, quality=85, optimize=True)
-            
-            # Create thumbnail
-            thumbnail_path = os.path.join(
-                profile_dir, 
-                f"thumb_{filename}"
-            )
-            image.thumbnail(settings.PROFILE_THUMBNAIL_SIZE)
-            image.save(thumbnail_path, quality=85, optimize=True)
-            
-            return filename
-            
-        except Exception as e:
-            raise HTTPException(500, "Error processing image")
+        Returns:
+            str: URL path to access the image
+        """
+        return f"/static/profile_images/{filename}"
 
     @staticmethod
-    def get_profile_image_url(filename: str) -> str:
-        """Get the full URL for a profile image"""
-        if not filename:
-            filename = settings.DEFAULT_PROFILE_IMAGE
-            
-        if settings.MEDIA_BASE_URL:
-            return f"{settings.MEDIA_BASE_URL}/{settings.PROFILE_IMAGES_DIR}/{filename}"
-        return f"/{settings.MEDIA_ROOT}/{settings.PROFILE_IMAGES_DIR}/{filename}"
+    def _optimize_image(filepath: str, max_size: tuple = (800, 800)):
+        """
+        Optimize the uploaded image by resizing and compressing.
+        
+        Args:
+            filepath (str): Path to the image file
+            max_size (tuple): Maximum width and height
+        """
+        try:
+            with Image.open(filepath) as img:
+                # Convert to RGB if needed
+                if img.mode in ('RGBA', 'P'):
+                    img = img.convert('RGB')
+                
+                # Resize if larger than max size
+                if img.size[0] > max_size[0] or img.size[1] > max_size[1]:
+                    img.thumbnail(max_size)
+                
+                # Save optimized image
+                img.save(filepath, 'JPEG', quality=85, optimize=True)
+        except Exception as e:
+            print(f"Error optimizing image: {str(e)}")

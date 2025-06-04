@@ -1,29 +1,25 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Table, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from .base import Base
+from ..db.base import Base
+from .associations import chat_users
 
-chat_users = Table(
-    "chat_users",
-    Base.metadata,
-    Column("user_id", Integer, ForeignKey("users.id")),
-    Column("chat_id", Integer, ForeignKey("chats.id")),
-)
 
 class Chat(Base):
     __tablename__ = "chats"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=True)  # Optional for group chats
+    name = Column(String, nullable=False)
+    admin_user = Column(String, ForeignKey("users.username"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_group = Column(Boolean, default=False)
     group_avatar = Column(String, nullable=True)
     
     # For group chats
-    admin_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     description = Column(String, nullable=True)
     
-    messages = relationship("Message", back_populates="chat", order_by="Message.created_at")
-    participants = relationship("User", secondary=chat_users, backref="chats")
+    admin = relationship("User", foreign_keys=[admin_user], back_populates="administered_chats")
+    users = relationship("User", secondary=chat_users, back_populates="chats")
+    messages = relationship("Message", back_populates="chat", cascade="all, delete-orphan")
     calls = relationship("Call", back_populates="chat")

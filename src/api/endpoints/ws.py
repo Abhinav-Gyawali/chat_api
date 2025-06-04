@@ -1,9 +1,9 @@
 from fastapi import APIRouter, WebSocket
-from api.websockets.chat import chat_ws
+from ..websockets.chat import chat_ws
 
-router = APIRouter()
+router = APIRouter(prefix="/ws", tags=["websocket"])
 
-@router.websocket("/ws/{user_id}")
+@router.websocket("/{user_id}")
 async def websocket_endpoint(websocket: WebSocket, user_id: int, token: str):
     await chat_ws.handle_connection(websocket, token, user_id)
 

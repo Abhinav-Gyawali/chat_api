@@ -7,7 +7,7 @@ from ...schemas.chat import ChatCreate, ChatResponse
 from ...schemas.message import MessageCreate, MessageResponse
 from ...services.chat import ChatService
 
-router = APIRouter()
+router = APIRouter(prefix="/chats", tags=["chat"])
 chat_service = ChatService()
 
 @router.post("/chats/", response_model=ChatResponse)

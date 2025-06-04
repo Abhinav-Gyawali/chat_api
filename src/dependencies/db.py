@@ -1,9 +1,4 @@
-from typing import Generator
-from models.base import SessionLocal
+from ..db.base import get_db
 
-def get_db() -> Generator:
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# Re-export get_db
+__all__ = ['get_db']
