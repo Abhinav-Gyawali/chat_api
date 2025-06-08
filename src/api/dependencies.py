@@ -47,10 +47,10 @@ async def get_current_user(
             settings.SECRET_KEY, 
             algorithms=[settings.ALGORITHM]
         )
-        user_id: str = payload.get("sub")
+        username: str = payload.get("sub")
         expiration = payload.get("exp")
         
-        if user_id is None:
+        if username is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token missing user identifier"
@@ -65,7 +65,7 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
         
-    user = db.query(User).filter(User.id == int(user_id)).first()
+    user = db.query(User).filter(User.username == username).first()
     
     if user is None:
         raise HTTPException(

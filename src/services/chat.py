@@ -5,7 +5,7 @@ from datetime import datetime
 
 from ..models.chat import Chat as ChatModel
 from ..models.user import User as UserModel
-from ..schemas.chat import ChatCreate, ChatUpdate
+from ..schemas.chat import ChatCreate, ChatUpdate, ChatResponse
 
 class ChatService:
     def __init__(self, db: Session):
@@ -17,32 +17,65 @@ class ChatService:
             raise HTTPException(status_code=404, detail="Chat not found")
         return chat
 
-    def get_user_chats(self, user_id: int) -> List[ChatModel]:
+    def get_user_chats(self, username: str) -> List[ChatModel]:
         return (
             self.db.query(ChatModel)
-            .filter(ChatModel.members.any(user_id))
+            .filter(ChatModel.members.any(username))
             .all()
         )
 
-    def create_chat(self, chat_data: ChatCreate, created_by: int) -> ChatModel:
-        # Verify all members exist
-        for member_id in chat_data.member_ids:
-            if not self.db.query(UserModel).filter(UserModel.id == member_id).first():
-                raise HTTPException(status_code=404, detail=f"User {member_id} not found")
+    def create_chat(self, chat_data: ChatCreate, created_by: str) -> ChatModel:
+        """
+        Create a new chat with given members.
+        """
+        # Use set for unique usernames
+        member_usernames = set(chat_data.member_usernames)
+        member_usernames.add(created_by)  # Add creator
+        
+        # Verify all members exist and collect unique user objects
+        users = []
+        seen_usernames = set()
+        
+        for username in member_usernames:
+            if username in seen_usernames:
+                continue
+            
+            user = self.db.query(UserModel).filter(UserModel.username == username).first()
+            if not user:
+                raise HTTPException(status_code=404, detail=f"User {username} not found")
+                
+            users.append(user)
+            seen_usernames.add(username)
 
+        # Create chat
         chat = ChatModel(
-            name=chat_data.name,
+            name=chat_data.name if chat_data.is_group else None,
             description=chat_data.description,
-            is_group_chat=chat_data.is_group_chat,
-            created_by=created_by,
+            is_group=chat_data.is_group,
+            admin_user=created_by if chat_data.is_group else None,
             created_at=datetime.utcnow()
         )
-        chat.members.extend(chat_data.member_ids)
+
+        # Add unique users
+        chat.users.extend(users)
         
         self.db.add(chat)
         self.db.commit()
         self.db.refresh(chat)
-        return chat
+        
+        # Prepare response data
+        return ChatResponse(
+            id=chat.id,
+            name=chat.name,
+            description=chat.description,
+            is_group=chat.is_group,
+            admin_user=chat.admin_user,
+            created_at=chat.created_at,
+            updated_at=chat.updated_at,
+            members=[user.username for user in chat.users],
+            last_message=None,
+            unread_count=0
+        )
 
     def update_chat(self, chat_id: int, chat_data: ChatUpdate) -> ChatModel:
         chat = self.get_chat(chat_id)

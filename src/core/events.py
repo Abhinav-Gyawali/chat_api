@@ -5,34 +5,40 @@ from datetime import datetime
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: Dict[int, WebSocket] = {}
-        self.user_rooms: Dict[int, Set[int]] = {}  # user_id: set of chat_ids
+        self.active_connections: Dict[str, WebSocket] = {}
+        self.user_rooms: Dict[str, Set[int]] = {}
         
-    async def connect(self, websocket: WebSocket, user_id: int):
+    async def connect(self, websocket: WebSocket, username: str):
         await websocket.accept()
-        self.active_connections[user_id] = websocket
+        self.active_connections[username] = websocket
         
-    def disconnect(self, user_id: int):
-        self.active_connections.pop(user_id, None)
-        self.user_rooms.pop(user_id, None)
+    async def disconnect(self, username: str):
+        """Safely handle disconnection"""
+        if username in self.active_connections:
+            websocket = self.active_connections.pop(username)
+            try:
+                await websocket.close()
+            except Exception:
+                pass
+        self.user_rooms.pop(username, None)
         
-    async def join_room(self, user_id: int, chat_id: int):
-        if user_id not in self.user_rooms:
-            self.user_rooms[user_id] = set()
-        self.user_rooms[user_id].add(chat_id)
+    async def join_room(self, username: str, chat_id: int):
+        if username not in self.user_rooms:
+            self.user_rooms[username] = set()
+        self.user_rooms[username].add(chat_id)
         
-    async def leave_room(self, user_id: int, chat_id: int):
-        if user_id in self.user_rooms:
-            self.user_rooms[user_id].remove(chat_id)
+    async def leave_room(self, username: str, chat_id: int):
+        if username in self.user_rooms:
+            self.user_rooms[username].remove(chat_id)
             
     async def broadcast_to_room(self, chat_id: int, message: dict):
-        for user_id, rooms in self.user_rooms.items():
-            if chat_id in rooms and user_id in self.active_connections:
-                await self.active_connections[user_id].send_json(message)
+        for username, rooms in self.user_rooms.items():
+            if chat_id in rooms and username in self.active_connections:
+                await self.active_connections[username].send_json(message)
 
-    async def send_personal_message(self, user_id: int, message: dict):
-        if user_id in self.active_connections:
-            await self.active_connections[user_id].send_json(message)
+    async def send_personal_message(self, username: str, message: dict):
+        if username in self.active_connections:
+            await self.active_connections[username].send_json(message)
 
 class CallManager:
     def __init__(self):

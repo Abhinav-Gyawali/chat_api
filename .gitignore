@@ -80,4 +80,5 @@ sdist/
 var/
 wheels/
 server.log
-upload/
+uploads/
+start
