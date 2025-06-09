@@ -3,11 +3,8 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from ..dependencies import get_db, get_current_user
 from ...models.chat import Chat
-from ...schemas.chat import ChatCreate, ChatResponse, ChatUpdate
 from ...services.chat import ChatService
-from ...schemas.message import MessageCreate, MessageResponse
-from datetime import datetime
-from ...schemas.user import datetime
+from ...schemas.chat import ChatResponse, ChatCreate, ChatUpdate
 
 router = APIRouter(prefix="/chats", tags=["chat"])
 
@@ -37,7 +34,6 @@ def create_chat(
 def get_chats(
     current_user = Depends(get_current_user),
     db: Session = Depends(get_db),
-    skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
     is_group: Optional[bool] = None,
@@ -47,7 +43,6 @@ def get_chats(
     Get user's chats with filtering and pagination.
 
     Parameters:
-    - skip: Number of chats to skip (pagination)
     - limit: Maximum number of chats to return
     - search: Search chats by name
     - is_group: Filter by group/direct chats
@@ -57,7 +52,6 @@ def get_chats(
         chat_service = ChatService(db)
         return chat_service.get_user_chats(
             username=current_user.username,
-            skip=skip,
             limit=limit,
             search=search,
             is_group=is_group,
@@ -94,55 +88,6 @@ async def update_chat(
     if chat.admin_user != current_user.username:
         raise HTTPException(status_code=403, detail="Only admin can update chat")
     return await chat_service.update_chat(chat_id, chat_update)
-
-@router.post("/{chat_id}/messages/", response_model=MessageResponse)
-async def send_message(
-    chat_id: int,
-    message: MessageCreate,
-    current_user = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Send a new message in the chat"""
-    try:
-        chat_service = ChatService(db)
-        return await chat_service.send_message(
-            chat_id=chat_id,
-            content=message.content,
-            sender_username=current_user.username,
-            message_type=message.message_type,
-            media_url=message.media_url
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@router.get("/{chat_id}/messages/", response_model=list[MessageResponse])
-async def get_messages(
-    chat_id: int,
-    current_user = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    before: Optional[datetime] = None
-):
-    """
-    Get chat messages with pagination and filtering.
-    
-    Parameters:
-    - skip: Number of messages to skip
-    - limit: Maximum number of messages to return
-    - before: Get messages before this timestamp
-    """
-    try:
-        chat_service = ChatService(db)
-        return await chat_service.get_messages(
-            chat_id=chat_id,
-            username=current_user.username,
-            skip=skip,
-            limit=limit,
-            before=before
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/{chat_id}/members/", response_model=ChatResponse)
 async def add_members(

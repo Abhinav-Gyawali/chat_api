@@ -34,8 +34,13 @@ app.include_router(users.router, prefix=settings.API_V1_STR)  # Add this line
 
 # Mount the media directory
 # Mount the uploads directory
-app.mount("/static", StaticFiles(directory="uploads"), name="static")
+app.mount("/static", StaticFiles(directory="uploads", html=True), name="static")
+app.mount("/static", StaticFiles(directory="static", html=True), name="static")
 
+# Create required directories
+import os
+os.makedirs("uploads", exist_ok=True)
+os.makedirs("static", exist_ok=True)
 @app.get("/")
 async def root():
     return {"message": "Welcome to FastAPI Chat API"}

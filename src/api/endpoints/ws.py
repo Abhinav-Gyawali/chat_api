@@ -7,22 +7,20 @@ from datetime import datetime
 
 router = APIRouter(prefix="/ws", tags=["websocket"])
 
-@router.websocket("/chat/{chat_id}")
+@router.websocket("/chat")  # Remove {chat_id} parameter
 async def websocket_endpoint(
-    websocket: WebSocket,
-    chat_id: int
+    websocket: WebSocket
 ):
     """
-    WebSocket endpoint for real-time chat features only.
+    Single WebSocket endpoint for handling all chats
     """
     try:
-        # Get token from query parameters first
+        # Get token from query parameters
         access_token = websocket.query_params.get("token")
         if not access_token:
             await websocket.close(code=4001, reason="Missing authentication token")
             return
 
-        # Remove 'Bearer ' prefix if present
         if access_token.startswith('Bearer '):
             access_token = access_token.replace('Bearer ', '')
 
@@ -39,17 +37,15 @@ async def websocket_endpoint(
             username = user.username
             print(f"User authenticated: {username}")
 
-            # Accept connection after authentication
+            # Accept connection
             await websocket.accept()
 
-            # Connect to chat room and set up WebSocket
+            # Set up WebSocket connection
             await chat_ws.handle_connection(websocket, access_token, username)
-            await chat_ws.connection_manager.join_room(username, chat_id)
 
             # Send connection confirmation
             await websocket.send_json({
                 "type": "connected",
-                "chat_id": chat_id,
                 "username": username,
                 "status": "connected"
             })
@@ -59,12 +55,20 @@ async def websocket_endpoint(
                 try:
                     raw_message = await websocket.receive_text()
                     data = json.loads(raw_message)
-                    data["chat_id"] = chat_id
                     
-                    # Log incoming message for debugging
+                    # Each message must include chat_id
+                    if "chat_id" not in data:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Missing chat_id in message"
+                        })
+                        continue
+
+                    # Join chat room if not already joined
+                    chat_id = data["chat_id"]
+                    await chat_ws.connection_manager.join_room(username, chat_id)
+                    
                     print(f"Received message from {username} in chat {chat_id}: {data}")
-                    
-                    # Handle the message
                     await chat_ws.handle_message(data, websocket, username)
                     
                 except WebSocketDisconnect:
@@ -96,7 +100,7 @@ async def websocket_endpoint(
     finally:
         if 'username' in locals():
             try:
-                await chat_ws.connection_manager.leave_room(username, chat_id)
+                # Disconnect from all rooms
                 await chat_ws.connection_manager.disconnect(username)
             except Exception as e:
                 print(f"Cleanup error: {str(e)}")
